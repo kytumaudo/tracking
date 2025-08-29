@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Pallet Tracking - Final (High-Res)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --primary-color: #2f81f7;
+            --success-color: #238636;
+            --danger-color: #da3633;
+            --hover-color: #21262d;
+            --btn-secondary-bg: #21262d;
+            --btn-secondary-border: #30363d;
+            --text-muted-color: #8b949e;
+        }
+
+        body.light-mode {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --hover-color: #e9ecef;
+            --btn-secondary-bg: #f8f9fa;
+            --btn-secondary-border: #dee2e6;
+            --text-muted-color: #6c757d;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .container { max-width: 98%; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+        .header h1 { font-size: 2.2rem; }
+        .week-nav { display: flex; align-items: center; gap: 10px; }
+        .week-nav span { font-size: 1.8rem; font-weight: bold; text-align: center; min-width: 250px;}
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        .btn { background-color: var(--primary-color); color: white; border: 1px solid var(--primary-color); padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-secondary { background-color: var(--btn-secondary-bg); border: 1px solid var(--btn-secondary-border); color: var(--text-color); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 25px; padding: 15px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+        .tracking-area { padding: 15px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+        .tracking-grid { display: flex; overflow-x: auto; padding-bottom: 15px; }
+        #export-page-1, #export-page-2 { display: flex; flex-direction: row; gap: 15px; }
+        .day-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 12px; width: 400px; flex-shrink: 0; }
+        .day-card-header { text-align: center; font-size: 1.25rem; font-weight: 600; color: var(--primary-color); padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+        .day-card-header .date-small { font-size: 0.8rem; font-weight: bold; color: var(--danger-color); }
+        .run-entry { border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; background-color: var(--run-bg-color, transparent); }
+        .run-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-weight: bold; }
+        .run-color-pill { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75em; flex-shrink: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .run-driver-name { flex-grow: 1; font-size: 0.95rem; cursor: pointer; }
+        .run-inputs { display: grid; grid-template-columns: auto 1fr 1fr; gap: 2px 12px; align-items: center; }
+        .input-group-label { grid-column: 1 / 2; font-size: 0.85em; font-weight: 500; padding-right: 5px; white-space: nowrap; }
+        .label-pallets { color: #0000FF; }
+        .label-bins { color: #6495ED; }
+        .input-header { font-size: 0.8em; text-align: center; font-weight: bold; margin-bottom: 4px; }
+        .out-header { color: var(--danger-color); }
+        .in-header { color: var(--success-color); }
+        .sub-header-container { display: flex; justify-content: space-around; padding: 0 4px; }
+        .sub-header { font-size: 0.7em; font-weight: bold; color: var(--text-muted-color); }
+        .segmented-control { display: flex; }
+        .segmented-control input { width: 33.333%; flex-grow: 1; padding: 8px 6px; background-color: var(--bg-color); border: 1px solid #000000; color: var(--text-color); text-align: center; border-radius: 0; -moz-appearance: textfield; font-size: 0.9rem;}
+        .segmented-control input::-webkit-outer-spin-button, .segmented-control input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .segmented-control input:not(:first-child) { border-left: none; }
+        .segmented-control input:first-child { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+        .segmented-control input:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+        .truck-clean-group { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; background: var(--hover-color); padding: 6px 8px; border-radius: 4px; margin-top: 5px; }
+        .truck-clean-group input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+        .truck-clean-group label { margin: 0; cursor: pointer; font-size: 0.9em; }
+        .summary-card { background-color: var(--card-bg); border: 2px solid var(--success-color); padding: 15px; border-radius: 8px; width: 400px; flex-shrink: 0; margin-left: 15px; }
+        .summary-card h2 { color: var(--success-color); text-align: center; margin-bottom: 15px; font-size: 1.4rem;}
+        .summary-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .summary-item { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--run-bg-color, transparent); display: grid; grid-template-columns: auto min-content 1fr; grid-template-rows: auto auto; gap: 8px; align-items: center; }
+        .summary-item-header { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        .summary-label { font-size: 1.1rem; color: var(--text-muted-color); white-space: nowrap; }
+        .summary-item strong { font-size: 1.4rem; color: var(--text-color); text-align: center; }
+        .summary-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .summary-inputs input { width: 100%; padding: 6px; background-color: var(--bg-color); border: 1px solid #000000; color: var(--text-color); border-radius: 4px; text-align: center; font-size: 0.9rem; }
+        .summary-item p { margin: 0; } 
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background-color: var(--card-bg); padding: 30px; border: 1px solid var(--border-color); border-radius: 10px; width: 90%; max-width: 600px; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-content h2 { margin-bottom: 20px; }
+        .modal-content label { display: block; margin: 15px 0 5px; }
+        .modal-content input[type="text"], .modal-content input[type="color"] { width: 100%; padding: 10px; background-color: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+        #run-list { list-style: none; max-height: 300px; overflow-y: auto; padding: 0; }
+        #run-list li { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--border-color); }
+        #run-list li:last-child { border-bottom: none; }
+        .run-edit-input { padding: 2px 4px; font-size: 0.9em; width: 100%; margin-bottom: 3px; background-color: var(--bg-color); border: 1px solid var(--primary-color); color: var(--text-color); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header"><h1>Daily Pallet Tracking</h1><nav class="week-nav"><button class="btn btn-secondary" id="prev-week">Previous Week</button><span id="current-week-display"></span><button class="btn btn-secondary" id="next-week">Next Week</button></nav><div class="header-right"><button id="theme-toggle" class="btn btn-secondary">Toggle Theme</button></div></header>
+        <div class="controls"><button id="enable-editing-btn" class="btn">Enable Editing</button><button id="manage-runs-btn" class="btn btn-secondary" disabled>Manage Runs</button><button id="save-btn" class="btn" style="background-color: var(--success-color); border-color: var(--success-color);" disabled>Save Changes</button><button id="export-a4-btn" class="btn btn-secondary">Export A4 Report</button><small id="issue-date" style="margin-left: auto; color: var(--text-muted-color); align-self: center;"></small></div>
+        <main id="tracking-area" class="tracking-area"><div id="tracking-grid" class="tracking-grid"></div></main>
+    </div>
+    <div id="manage-runs-modal" class="modal"><div class="modal-content"><h2>Manage Runs</h2><div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: flex-end;"><div><label for="new-run-number">Run Number</label><input type="text" id="new-run-number" placeholder="e.g. RUN 01"></div><div><label for="new-driver-name">Driver Name</label><input type="text" id="new-driver-name" placeholder="e.g. John D."></div><div><label for="new-run-color">Color</label><input type="color" id="new-run-color" value="#e67e22"></div><button id="add-run-btn" class="btn">Add</button></div><hr style="border-color: var(--border-color); margin: 20px 0;"><h3>Current List</h3><ul id="run-list"></ul><div class="modal-buttons"><button class="btn btn-secondary" onclick="closeModal('manage-runs-modal')">Close</button></div></div></div>
+
+    <script>
+    function openModal(id) { const modal = document.getElementById(id); if (modal) modal.classList.add('active'); }
+    function closeModal(id) { const modal = document.getElementById(id); if (modal) modal.classList.remove('active'); }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const PASSWORD = '911';
+        let isEditMode = false;
+        let currentDate = new Date('2025-06-16T00:00:00');
+        let data = { runs: [], entries: {}, summary: {} };
+        const LOCAL_STORAGE_KEY = 'palletTrackingData_v20_en';
+
+        const trackingGrid = document.getElementById('tracking-grid');
+        const weekDisplay = document.getElementById('current-week-display');
+        const issueDateEl = document.getElementById('issue-date');
+        const enableEditingBtn = document.getElementById('enable-editing-btn');
+        const manageRunsBtn = document.getElementById('manage-runs-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const runList = document.getElementById('run-list');
+        const exportA4Btn = document.getElementById('export-a4-btn');
+
+        function loadData() {
+            const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedData) {
+                data = JSON.parse(savedData);
+                if (!data.summary) data.summary = {}; 
+            } else {
+                data.runs = [
+                    { id: 'RUN 01', driver: 'TUAN', color: '#2ecc71' }, { id: 'RUN 02', driver: 'TUAN', color: '#3498db' },
+                    { id: 'RUN 03', driver: 'ROGER', color: '#e74c3c' }, { id: 'RUN 04', driver: 'HIEN', color: '#f1c40f' },
+                ];
+                data.summary = {};
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Saved!";
+            setTimeout(() => {
+                if(isEditMode) saveBtn.textContent = "Save Changes";
+            }, 2000);
+        }
+
+        function renderApp() {
+            renderWeekNav();
+            renderTrackingGrid();
+            toggleEditStateUI();
+        }
+
+        function renderWeekNav() {
+            const weekStart = getWeekStart(currentDate);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 5);
+            const formatDate = (d) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear().toString().slice(-2)}`;
+            weekDisplay.textContent = `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
+            issueDateEl.textContent = `Issue Date: ${new Date().toLocaleDateString('en-GB')}`;
+        }
+        
+        function createRunEntry(run, dateString) {
+            const emptyEntry = { p_out: ['', '', ''], p_in: ['', '', ''], b_out: ['', '', ''], b_in: ['', '', ''], clean: false };
+            const entryData = data.entries[dateString]?.[run.id] || emptyEntry;
+            for (const key of ['p_out', 'p_in', 'b_out', 'b_in']) { if (!Array.isArray(entryData[key]) || entryData[key].length !== 3) { entryData[key] = ['', '', '']; } }
+            const entryEl = document.createElement('div');
+            entryEl.className = 'run-entry';
+            entryEl.dataset.runId = run.id;
+            entryEl.dataset.date = dateString;
+            const opacity = document.body.classList.contains('light-mode') ? '30' : '20';
+            entryEl.style.setProperty('--run-bg-color', `${run.color}${opacity}`);
+            entryEl.innerHTML = `<div class="run-header"><div class="run-color-pill" style="background-color: ${run.color};">${run.id.replace('RUN ','')}</div><div class="run-driver-name" data-run-id="${run.id}"><span>${run.driver} - ${run.id}</span></div></div><div class="run-inputs"><div></div><div class="input-header out-header">OUT</div><div class="input-header in-header">IN</div><div></div><div class="sub-header-container"><span class="sub-header">1ST</span><span class="sub-header">2ND</span><span class="sub-header">3RD</span></div><div class="sub-header-container"><span class="sub-header">1ST</span><span class="sub-header">2ND</span><span class="sub-header">3RD</span></div><div class="input-group-label label-pallets">PALLETS</div><div class="segmented-control"><input type="number" data-field="p_out" data-index="0" value="${entryData.p_out[0]}"><input type="number" data-field="p_out" data-index="1" value="${entryData.p_out[1]}"><input type="number" data-field="p_out" data-index="2" value="${entryData.p_out[2]}"></div><div class="segmented-control"><input type="number" data-field="p_in" data-index="0" value="${entryData.p_in[0]}"><input type="number" data-field="p_in" data-index="1" value="${entryData.p_in[1]}"><input type="number" data-field="p_in" data-index="2" value="${entryData.p_in[2]}"></div><div class="input-group-label label-bins">BINS</div><div class="segmented-control"><input type="number" data-field="b_out" data-index="0" value="${entryData.b_out[0]}"><input type="number" data-field="b_out" data-index="1" value="${entryData.b_out[1]}"><input type="number" data-field="b_out" data-index="2" value="${entryData.b_out[2]}"></div><div class="segmented-control"><input type="number" data-field="b_in" data-index="0" value="${entryData.b_in[0]}"><input type="number" data-field="b_in" data-index="1" value="${entryData.b_in[1]}"><input type="number" data-field="b_in" data-index="2" value="${entryData.b_in[2]}"></div><div class="truck-clean-group"><input type="checkbox" id="clean-${run.id}-${dateString}" data-field="clean" ${entryData.clean ? 'checked' : ''}><label for="clean-${run.id}-${dateString}">Truck Cleaned</label></div></div>`;
+            return entryEl;
+        }
+
+        function renderTrackingGrid() {
+            trackingGrid.innerHTML = '<div id="export-page-1"></div><div id="export-page-2"></div>';
+            const page1Container = document.getElementById('export-page-1');
+            const page2Container = document.getElementById('export-page-2');
+            const weekStart = getWeekStart(currentDate);
+            const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+            for (let i = 0; i < 4; i++) {
+                const day = new Date(weekStart);
+                day.setDate(weekStart.getDate() + i);
+                const dayCard = document.createElement('div');
+                dayCard.className = 'day-card';
+                dayCard.innerHTML = `<div class="day-card-header">${dayNames[day.getDay()]}<div class="date-small">${day.toLocaleDateString('en-GB')}</div></div>`;
+                data.runs.forEach(run => dayCard.appendChild(createRunEntry(run, toYYYYMMDD(day))));
+                page1Container.appendChild(dayCard);
+            }
+            for (let i = 4; i < 6; i++) {
+                 const day = new Date(weekStart);
+                day.setDate(weekStart.getDate() + i);
+                const dayCard = document.createElement('div');
+                dayCard.className = 'day-card';
+                dayCard.innerHTML = `<div class="day-card-header">${dayNames[day.getDay()]}<div class="date-small">${day.toLocaleDateString('en-GB')}</div></div>`;
+                data.runs.forEach(run => dayCard.appendChild(createRunEntry(run, toYYYYMMDD(day))));
+                page2Container.appendChild(dayCard);
+            }
+            page2Container.appendChild(createSummaryCard(data.runs, weekStart));
+        }
+        
+        function createSummaryCard(runsToSummarize, weekStart) {
+            const card = document.createElement('div');
+            card.className = 'summary-card';
+            card.innerHTML = '<h2>Weekly Summary</h2><div class="summary-grid"></div>';
+            const summaryGrid = card.querySelector('.summary-grid');
+            const weekStartDateString = toYYYYMMDD(weekStart);
+            const sumArray = (arr) => (arr || []).reduce((sum, val) => sum + (Number(val) || 0), 0);
+            
+            runsToSummarize.forEach(run => {
+                let totalPalletsOut = 0, totalPalletsIn = 0, totalBinsOut = 0, totalBinsIn = 0;
+                for(let i=0; i<6; i++) {
+                    const day = new Date(weekStart);
+                    day.setDate(weekStart.getDate() + i);
+                    const entry = data.entries[toYYYYMMDD(day)]?.[run.id];
+                    if (entry) {
+                        totalPalletsOut += sumArray(entry.p_out);
+                        totalPalletsIn += sumArray(entry.p_in);
+                        totalBinsOut += sumArray(entry.b_out);
+                        totalBinsIn += sumArray(entry.b_in);
+                    }
+                }
+                const totalPallets = totalPalletsOut - totalPalletsIn;
+                const displayTotalPallets = totalPallets === 0 ? '' : totalPallets;
+                const totalBins = totalBinsOut - totalBinsIn;
+                const displayTotalBins = totalBins === 0 ? '' : totalBins;
+
+                const weekKey = `${run.id}-${weekStartDateString}`;
+                const summaryValues = data.summary?.[weekKey] || { summary1: '', summary2: '', summary3: '', summary4: '' };
+                
+                const summaryItem = document.createElement('div');
+                summaryItem.className = 'summary-item';
+                const opacity = document.body.classList.contains('light-mode') ? '30' : '20';
+                summaryItem.style.setProperty('--run-bg-color', `${run.color}${opacity}`);
+
+                summaryItem.innerHTML = `
+                    <div class="summary-item-header">
+                        <div class="run-color-pill" style="background-color: ${run.color};">${run.id.replace('RUN ','')}</div>
+                        <span>${run.driver} - ${run.id}</span>
+                    </div>
+                    <span class="summary-label">Total Pallets:</span>
+                    <strong>${displayTotalPallets}</strong>
+                    <div class="summary-inputs">
+                        <input type="text" placeholder="Total" value="${summaryValues.summary1}" data-field="summary1" data-run-id="${run.id}" data-week-start="${weekStartDateString}">
+                        <input type="text" placeholder="" value="${summaryValues.summary2}" data-field="summary2" data-run-id="${run.id}" data-week-start="${weekStartDateString}">
+                    </div>
+                    <span class="summary-label">Total Bins:</span>
+                    <strong>${displayTotalBins}</strong>
+                    <div class="summary-inputs">
+                        <input type="text" placeholder="Total" value="${summaryValues.summary3}" data-field="summary3" data-run-id="${run.id}" data-week-start="${weekStartDateString}">
+                        <input type="text" placeholder="" value="${summaryValues.summary4}" data-field="summary4" data-run-id="${run.id}" data-week-start="${weekStartDateString}">
+                    </div>`;
+                summaryGrid.appendChild(summaryItem);
+            });
+            return card;
+        }
+        
+        function renderRunList() {
+            runList.innerHTML = '';
+            data.runs.forEach(run => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="run-color-pill" style="background-color: ${run.color}; flex-shrink: 0;">${run.id.replace('RUN ','')}</div>
+                    <strong style="flex-grow: 1;">${run.driver} - ${run.id}</strong>
+                    <input type="color" value="${run.color}" title="Change run color" style="margin-left: auto; cursor: pointer; height: 30px; width: 30px; background: none; border: 1px solid var(--border-color); padding: 2px;">
+                    <button class="btn" style="padding: 2px 8px; font-size: 0.8em; background-color: var(--danger-color); border-color: var(--danger-color); margin-left: 10px;">Delete</button>
+                `;
+                const colorInput = li.querySelector('input[type="color"]');
+                colorInput.addEventListener('change', (e) => {
+                    const newColor = e.target.value;
+                    const runToUpdate = data.runs.find(r => r.id === run.id);
+                    if (runToUpdate) {
+                        runToUpdate.color = newColor;
+                        saveData();
+                        renderApp(); 
+                        li.querySelector('.run-color-pill').style.backgroundColor = newColor;
+                    }
+                });
+                li.querySelector('button').onclick = () => {
+                    if (confirm(`Are you sure you want to delete ${run.id} - ${run.driver}? This will permanently remove all entered data for this run.`)) {
+                        Object.keys(data.entries).forEach(date => { if (data.entries[date][run.id]) delete data.entries[date][run.id]; });
+                        Object.keys(data.summary).forEach(key => { if(key.startsWith(run.id)) delete data.summary[key]});
+                        data.runs = data.runs.filter(r => r.id !== run.id);
+                        saveData(); renderRunList(); renderApp();     
+                    }
+                };
+                
+                runList.appendChild(li);
+            });
+        }
+        
+        function toggleEditStateUI() {
+            const inputs = document.querySelectorAll('.tracking-grid input, .summary-item input');
+            const isEnabled = isEditMode;
+            if (isEnabled) { enableEditingBtn.textContent = 'Disable Editing'; enableEditingBtn.style.backgroundColor = 'var(--danger-color)'; enableEditingBtn.style.borderColor = 'var(--danger-color)'; } 
+            else { enableEditingBtn.textContent = 'Enable Editing'; enableEditingBtn.style.backgroundColor = 'var(--primary-color)'; enableEditingBtn.style.borderColor = 'var(--primary-color)'; }
+            manageRunsBtn.disabled = !isEnabled;
+            if (!isEnabled) saveBtn.disabled = true;
+            else { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
+            inputs.forEach(input => { input.readOnly = !isEnabled; input.disabled = !isEnabled; });
+        }
+        
+        function handleDataChange(e) {
+            if (!isEditMode) return;
+            const input = e.target;
+            const runEntry = input.closest('.run-entry');
+            if (runEntry) {
+                const { runId, date } = runEntry.dataset;
+                const { field, index } = input.dataset;
+                if (!data.entries[date]) data.entries[date] = {};
+                if (!data.entries[date][runId]) data.entries[date][runId] = {};
+                if (field === 'clean') {
+                    data.entries[date][runId].clean = input.checked;
+                } else {
+                    if (!Array.isArray(data.entries[date][runId][field])) { data.entries[date][runId][field] = ['', '', '']; }
+                    data.entries[date][runId][field][parseInt(index, 10)] = input.value;
+                }
+                saveBtn.disabled = false;
+                return;
+            }
+            const summaryItem = input.closest('.summary-item');
+            if (summaryItem) {
+                const { runId, weekStart, field } = input.dataset;
+                const weekKey = `${runId}-${weekStart}`;
+                if (!data.summary) data.summary = {};
+                if (!data.summary[weekKey]) data.summary[weekKey] = { summary1: '', summary2: '', summary3: '', summary4: '' };
+                data.summary[weekKey][field] = input.value;
+                saveBtn.disabled = false;
+            }
+        }
+
+        const getWeekStart = (d) => { const date = new Date(d); const day = date.getDay(); return new Date(date.setDate(date.getDate() - day + (day === 0 ? -6 : 1))); }
+        const toYYYYMMDD = (d) => d.toISOString().split('T')[0];
+        
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                const activeModal = document.querySelector('.modal.active');
+                if (activeModal) closeModal(activeModal.id);
+            }
+        });
+
+        // ===================================================================================
+        // === START OF PDF EXPORT LOGIC (ADVANCED LAYOUT RECONSTRUCTION) ===
+        // ===================================================================================
+        exportA4Btn.addEventListener('click', async () => {
+            const { jsPDF } = window.jspdf;
+            const weekText = document.getElementById('current-week-display').textContent;
+            const weekStart = getWeekStart(currentDate);
+            const chunkSize = 3; // Number of drivers per page
+
+            const exportContainer = document.createElement('div');
+            exportContainer.style.position = 'absolute';
+            exportContainer.style.left = '-9999px';
+            exportContainer.style.top = '0';
+            const currentBgColor = window.getComputedStyle(document.body).getPropertyValue('--bg-color');
+            exportContainer.style.backgroundColor = currentBgColor;
+            document.body.appendChild(exportContainer);
+
+            function buildPageForPDF(runsToBuild) {
+                const pageWrapper = document.createElement('div');
+                Object.assign(pageWrapper.style, {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    width: '100%',
+                    height: '100%',
+                    gap: '15px',
+                });
+
+                const daysRow = document.createElement('div');
+                Object.assign(daysRow.style, {
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '15px',
+                    flexGrow: '1', // This is crucial: makes the top row expand vertically
+                });
+                pageWrapper.appendChild(daysRow);
+                
+                const summaryRow = document.createElement('div');
+                pageWrapper.appendChild(summaryRow);
+
+                const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+                // Create day cards (Mon-Sat) and add them to the top row
+                for (let i = 0; i < 6; i++) {
+                    const day = new Date(weekStart);
+                    day.setDate(weekStart.getDate() + i);
+                    const dayCard = document.createElement('div');
+                    Object.assign(dayCard.style, {
+                        backgroundColor: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        flex: '1',
+                    });
+                    
+                    const dayCardHeader = document.createElement('div');
+                    dayCardHeader.className = 'day-card-header';
+                    dayCardHeader.innerHTML = `${dayNames[day.getDay()]}<div class="date-small">${day.toLocaleDateString('en-GB')}</div></div>`;
+                    dayCard.appendChild(dayCardHeader);
+
+                    runsToBuild.forEach(run => {
+                        const runEntry = createRunEntry(run, toYYYYMMDD(day));
+                        // Allow run entries to grow vertically
+                        runEntry.style.display = 'flex';
+                        runEntry.style.flexDirection = 'column';
+                        runEntry.style.flexGrow = '1';
+                        const runInputs = runEntry.querySelector('.run-inputs');
+                        if (runInputs) {
+                            runInputs.style.flexGrow = '1';
+                            runInputs.style.alignContent = 'space-around';
+                        }
+                        dayCard.appendChild(runEntry);
+                    });
+                    daysRow.appendChild(dayCard);
+                }
+                
+                // Create summary card and add it to the bottom row
+                const summaryCard = createSummaryCard(runsToBuild, weekStart);
+                summaryCard.style.marginLeft = '0';
+                summaryCard.style.width = '100%';
+                
+                // Make the summary items display horizontally for better use of space
+                const summaryGrid = summaryCard.querySelector('.summary-grid');
+                if (summaryGrid) {
+                    summaryGrid.style.display = 'flex';
+                    summaryGrid.style.flexWrap = 'wrap';
+                    summaryGrid.style.justifyContent = 'space-around';
+                    summaryGrid.style.gap = '15px';
+                    Array.from(summaryGrid.children).forEach(child => {
+                        child.style.flex = `1 1 ${100 / chunkSize - 5}%`; // Flexible width
+                    });
+                }
+                summaryRow.appendChild(summaryCard);
+
+                return pageWrapper;
+            }
+            
+            function addCanvasToPdf(canvas, pdfInstance) {
+                const imgData = canvas.toDataURL('image/png', 1.0);
+                const pdfWidth = pdfInstance.internal.pageSize.getWidth();
+                const pdfHeight = pdfInstance.internal.pageSize.getHeight();
+                const margin = 10;
+                
+                const contentWidth = pdfWidth - (2 * margin);
+                const contentHeight = pdfHeight - (2 * margin);
+                
+                pdfInstance.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+            }
+
+            try {
+                const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                
+                for (let i = 0; i < data.runs.length; i += chunkSize) {
+                    const runChunk = data.runs.slice(i, i + chunkSize);
+                    
+                    if (i > 0) pdf.addPage();
+
+                    exportContainer.innerHTML = '';
+                    
+                    const A4_LANDSCAPE_ASPECT_RATIO = 297 / 210;
+                    const renderWidth = 2480;
+                    const renderHeight = Math.round(renderWidth / A4_LANDSCAPE_ASPECT_RATIO);
+                    
+                    Object.assign(exportContainer.style, {
+                        width: `${renderWidth}px`,
+                        height: `${renderHeight}px`,
+                        display: 'flex',
+                        padding: '15px',
+                    });
+                    
+                    const pageContent = buildPageForPDF(runChunk);
+                    exportContainer.appendChild(pageContent);
+
+                    const canvas = await html2canvas(exportContainer, {
+                        width: renderWidth,
+                        height: renderHeight,
+                        scale: 1,
+                        useCORS: true
+                    });
+
+                    addCanvasToPdf(canvas, pdf);
+                }
+                
+                pdf.save(`pallet-report-week-${weekText.replace(/ /g, '')}.pdf`);
+
+            } catch (error) { 
+                console.error("Error exporting to PDF:", error); 
+                alert("An error occurred while exporting the report."); 
+            } finally {
+                document.body.removeChild(exportContainer);
+            }
+        });
+        // ===================================================================================
+        // === END OF PDF EXPORT LOGIC ===
+        // ===================================================================================
+
+        document.getElementById('prev-week').addEventListener('click', () => { currentDate.setDate(currentDate.getDate() - 7); renderApp(); });
+        document.getElementById('next-week').addEventListener('click', () => { currentDate.setDate(currentDate.getDate() + 7); renderApp(); });
+        document.getElementById('theme-toggle').addEventListener('click', () => document.body.classList.toggle('light-mode'));
+        enableEditingBtn.addEventListener('click', () => {
+            if (isEditMode) { isEditMode = false; } else {
+                const pass = prompt('Please enter the password to enable editing:');
+                if (pass === PASSWORD) { isEditMode = true; } else if (pass !== null) { alert('Incorrect password!'); }
+            }
+            toggleEditStateUI();
+        });
+        saveBtn.addEventListener('click', () => { if(isEditMode) { saveData(); renderApp(); } });
+        trackingGrid.addEventListener('input', handleDataChange);
+        
+        trackingGrid.addEventListener('dblclick', (e) => {
+            if (!isEditMode) return;
+            const targetElement = e.target.closest('.run-driver-name');
+            if (targetElement) { makeRunEditable(targetElement); }
+        });
+
+        manageRunsBtn.addEventListener('click', () => { renderRunList(); openModal('manage-runs-modal'); });
+        
+        document.getElementById('add-run-btn').addEventListener('click', () => {
+            const runIdInput = document.getElementById('new-run-number');
+            const driverNameInput = document.getElementById('new-driver-name');
+            const colorInput = document.getElementById('new-run-color');
+            const runId = runIdInput.value.trim().toUpperCase();
+            const driverName = driverNameInput.value.trim();
+            if (!runId || !driverName) return alert('Please enter both Run Number and Driver Name.');
+            if (data.runs.some(r => r.id === runId)) return alert(`Run number "${runId}" already exists.`);
+            data.runs.push({ id: runId, driver: driverName, color: colorInput.value });
+            data.runs.sort((a,b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
+            runIdInput.value = ''; driverNameInput.value = '';
+            saveData(); renderRunList(); renderApp();
+        });
+
+        function makeRunEditable(element) {
+            if (element.querySelector('input')) return;
+            const originalRunId = element.dataset.runId;
+            const run = data.runs.find(r => r.id === originalRunId);
+            if (!run) return;
+            const container = document.createElement('div');
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.gap = '3px';
+            const driverInput = document.createElement('input');
+            driverInput.type = 'text';
+            driverInput.className = 'run-edit-input';
+            driverInput.value = run.driver;
+            const runNumberInput = document.createElement('input');
+            runNumberInput.type = 'text';
+            runNumberInput.className = 'run-edit-input';
+            runNumberInput.value = run.id.replace('RUN', '').trim();
+            container.appendChild(driverInput);
+            container.appendChild(runNumberInput);
+            element.innerHTML = '';
+            element.appendChild(container);
+            driverInput.focus();
+            const saveChanges = () => saveRunEdits(element, originalRunId, driverInput, runNumberInput);
+            const inputs = [driverInput, runNumberInput];
+            inputs.forEach(input => {
+                input.addEventListener('blur', saveChanges);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') saveChanges();
+                    if (e.key === 'Escape') renderApp();
+                });
+            });
+        }
+
+        function saveRunEdits(element, originalRunId, driverInput, runNumberInput) {
+            if (!element.querySelector('input')) return;
+            const newDriver = driverInput.value.trim();
+            const newRunNumber = runNumberInput.value.trim().padStart(2, '0');
+            const newRunId = `RUN ${newRunNumber}`;
+            if (!newDriver || !newRunNumber) {
+                alert('Driver name and Run number cannot be empty.');
+                renderApp(); return;
+            }
+            if (newRunId !== originalRunId && data.runs.some(r => r.id === newRunId)) {
+                alert(`Run ID "${newRunId}" already exists.`);
+                renderApp(); return;
+            }
+            const runToUpdate = data.runs.find(r => r.id === originalRunId);
+            if (runToUpdate) {
+                runToUpdate.driver = newDriver;
+                runToUpdate.id = newRunId;
+            }
+            if (originalRunId !== newRunId) {
+                Object.keys(data.entries).forEach(date => {
+                    if (data.entries[date][originalRunId]) {
+                        data.entries[date][newRunId] = data.entries[date][originalRunId];
+                        delete data.entries[date][originalRunId];
+                    }
+                });
+                Object.keys(data.summary).forEach(key => {
+                    if (key.startsWith(originalRunId + '-')) {
+                        const newKey = key.replace(originalRunId, newRunId);
+                        data.summary[newKey] = data.summary[key];
+                        delete data.summary[key];
+                    }
+                });
+            }
+            saveData();
+            renderApp();
+        }
+        
+        loadData();
+        renderApp();
+    });
+    </script>
+</body>
+</html>
